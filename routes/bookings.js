@@ -1,7 +1,8 @@
 import express from "express";
 import { ObjectId } from "mongodb";
 import { bookingsCollection, servicesCollection } from "../db.js";
-import { verifyToken, verifyCustomer } from "../middlewares/verifyToken.js";
+import { verifyToken, verifyCustomer, verifyTechnician } from "../middlewares/verifyToken.js";
+
 
 const router = express.Router();
 
@@ -115,6 +116,61 @@ router.patch("/:id/cancel", verifyToken, verifyCustomer, async (req, res) => {
     { $set: { status: "cancelled" } }
   );
   res.send({ message: "Booking cancelled" });
+});
+
+
+// Technician: bookings assigned to me
+router.get("/technician", verifyToken, verifyTechnician, async (req, res) => {
+  const bookings = await bookingsCollection
+    .find({ technicianEmail: req.user.email })
+    .sort({ createdAt: -1 })
+    .toArray();
+  res.send(bookings);
+});
+
+// Technician: move a booking through the status pipeline
+const allowedTransitions = {
+  requested: ["accepted", "rejected"],
+  accepted: ["in-progress"],
+  "in-progress": ["completed"],
+};
+
+router.patch("/:id/status", verifyToken, verifyTechnician, async (req, res) => {
+  const { id } = req.params;
+  const { status, finalAmount } = req.body;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(404).send({ message: "Booking not found" });
+  }
+
+  const booking = await bookingsCollection.findOne({ _id: new ObjectId(id) });
+  if (!booking) {
+    return res.status(404).send({ message: "Booking not found" });
+  }
+  if (booking.technicianEmail !== req.user.email) {
+    return res.status(403).send({ message: "This booking is not assigned to you" });
+  }
+
+  const nextAllowed = allowedTransitions[booking.status] || [];
+  if (!nextAllowed.includes(status)) {
+    return res
+      .status(400)
+      .send({ message: `You cannot change status from "${booking.status}" to "${status}"` });
+  }
+
+  const update = { status };
+  if (status === "completed") {
+    if (!finalAmount || Number(finalAmount) <= 0) {
+      return res.status(400).send({ message: "Final amount is required to complete the job" });
+    }
+    update.finalAmount = Number(finalAmount);
+  }
+
+  await bookingsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: update }
+  );
+  res.send({ message: `Booking marked as ${status}` });
 });
 
 

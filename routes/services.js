@@ -1,7 +1,8 @@
 import express from "express";
 import { ObjectId } from "mongodb";
-import { servicesCollection } from "../db.js";
 import { verifyToken, verifyTechnician } from "../middlewares/verifyToken.js";
+import { servicesCollection, usersCollection } from "../db.js";
+
 
 const router = express.Router();
 
@@ -60,8 +61,24 @@ router.get("/:id", async (req, res) => {
   if (!service) {
     return res.status(404).send({ message: "Service not found" });
   }
-  res.send(service);
+    // Attach a short technician summary (name, photo, area, bio)
+  const technician = await usersCollection.findOne({ email: service.technicianEmail });
+
+  res.send({
+    ...service,
+    technician: technician
+      ? {
+          name: technician.name,
+          email: technician.email,
+          image: technician.image || "",
+          area: technician.area || "",
+          bio: technician.bio || "",
+        }
+      : null,
+  });
 });
+
+
 
 // Technician: add a new service (starts as pending)
 router.post("/", verifyToken, verifyTechnician, async (req, res) => {

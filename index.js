@@ -3,6 +3,8 @@ import cors from "cors";
 import "dotenv/config";
 import servicesRouter from "./routes/services.js";
 import adminRouter from "./routes/admin.js";
+import bookingsRouter from "./routes/bookings.js";
+
 
 
 const app = express();
@@ -19,6 +21,8 @@ app.get("/", (req, res) => {
 // routes
 app.use("/api/services", servicesRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/bookings", bookingsRouter);
+
 
 
 app.listen(port, () => {

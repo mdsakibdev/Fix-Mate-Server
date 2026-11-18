@@ -103,4 +103,80 @@ router.post("/", verifyToken, verifyTechnician, async (req, res) => {
   res.status(201).send({ message: "Service added, waiting for admin approval", insertedId: result.insertedId });
 });
 
+// Technician: toggle availability on/off
+router.patch("/:id/availability", verifyToken, verifyTechnician, async (req, res) => {
+  const { id } = req.params;
+  if (!ObjectId.isValid(id)) {
+    return res.status(404).send({ message: "Service not found" });
+  }
+
+  const result = await servicesCollection.updateOne(
+    { _id: new ObjectId(id), technicianEmail: req.user.email },
+    { $set: { isAvailable: Boolean(req.body.isAvailable) } }
+  );
+
+  if (result.matchedCount === 0) {
+    return res.status(404).send({ message: "Service not found" });
+  }
+  res.send({ message: "Availability updated" });
+});
+
+// Technician: update my service (approval goes back to pending after edit)
+router.patch("/:id", verifyToken, verifyTechnician, async (req, res) => {
+  const { id } = req.params;
+  if (!ObjectId.isValid(id)) {
+    return res.status(404).send({ message: "Service not found" });
+  }
+
+  const { title, category, description, image, basePrice, estimatedDuration, serviceMode, serviceArea } = req.body;
+
+  if (!title || !category || !description || !image || !basePrice || !estimatedDuration || !serviceMode || !serviceArea) {
+    return res.status(400).send({ message: "All fields are required" });
+  }
+  if (Number(basePrice) <= 0) {
+    return res.status(400).send({ message: "Base price must be a positive number" });
+  }
+
+  const result = await servicesCollection.updateOne(
+    { _id: new ObjectId(id), technicianEmail: req.user.email },
+    {
+      $set: {
+        title,
+        category,
+        description,
+        image,
+        basePrice: Number(basePrice),
+        estimatedDuration,
+        serviceMode,
+        serviceArea,
+        approvalStatus: "pending",
+      },
+    }
+  );
+
+  if (result.matchedCount === 0) {
+    return res.status(404).send({ message: "Service not found" });
+  }
+  res.send({ message: "Service updated, waiting for admin approval again" });
+});
+
+// Technician: delete my service
+router.delete("/:id", verifyToken, verifyTechnician, async (req, res) => {
+  const { id } = req.params;
+  if (!ObjectId.isValid(id)) {
+    return res.status(404).send({ message: "Service not found" });
+  }
+
+  const result = await servicesCollection.deleteOne({
+    _id: new ObjectId(id),
+    technicianEmail: req.user.email,
+  });
+
+  if (result.deletedCount === 0) {
+    return res.status(404).send({ message: "Service not found" });
+  }
+  res.send({ message: "Service deleted" });
+});
+
+
 export default router;

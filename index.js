@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import servicesRouter from "./routes/services.js";
+import adminRouter from "./routes/admin.js";
+
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -16,6 +18,8 @@ app.get("/", (req, res) => {
 
 // routes
 app.use("/api/services", servicesRouter);
+app.use("/api/admin", adminRouter);
+
 
 app.listen(port, () => {
   console.log(`FixMate server is running on port ${port}`);

@@ -81,4 +81,41 @@ router.post("/", verifyToken, verifyCustomer, async (req, res) => {
     });
 });
 
+
+// Customer: my bookings
+router.get("/my", verifyToken, verifyCustomer, async (req, res) => {
+  const bookings = await bookingsCollection
+    .find({ customerEmail: req.user.email })
+    .sort({ createdAt: -1 })
+    .toArray();
+  res.send(bookings);
+});
+
+// Customer: cancel a booking (only while the status is "requested")
+router.patch("/:id/cancel", verifyToken, verifyCustomer, async (req, res) => {
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(404).send({ message: "Booking not found" });
+  }
+
+  const booking = await bookingsCollection.findOne({ _id: new ObjectId(id) });
+  if (!booking) {
+    return res.status(404).send({ message: "Booking not found" });
+  }
+  if (booking.customerEmail !== req.user.email) {
+    return res.status(403).send({ message: "You can only cancel your own booking" });
+  }
+  if (booking.status !== "requested") {
+    return res.status(400).send({ message: "You can cancel only while the request is pending" });
+  }
+
+  await bookingsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { status: "cancelled" } }
+  );
+  res.send({ message: "Booking cancelled" });
+});
+
+
 export default router;

@@ -5,6 +5,7 @@ import servicesRouter from "./routes/services.js";
 import adminRouter from "./routes/admin.js";
 import bookingsRouter from "./routes/bookings.js";
 import paymentsRouter from "./routes/payments.js";
+import statsRouter from "./routes/stats.js";
 
 
 
@@ -25,6 +26,7 @@ app.use("/api/services", servicesRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/bookings", bookingsRouter);
 app.use("/api/payments", paymentsRouter);
+app.use("/api/stats", statsRouter)
 
 
 

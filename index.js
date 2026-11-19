@@ -7,9 +7,6 @@ import bookingsRouter from "./routes/bookings.js";
 import paymentsRouter from "./routes/payments.js";
 import statsRouter from "./routes/stats.js";
 
-
-
-
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -28,9 +25,11 @@ app.use("/api/bookings", bookingsRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/stats", statsRouter)
 
+// Run the server locally (Vercel uses the exported app instead)
+if (process.env.NODE_ENV !== "production") {
+  app.listen(port, () => {
+    console.log(`FixMate server is running on port ${port}`);
+  });
+}
 
-
-
-app.listen(port, () => {
-  console.log(`FixMate server is running on port ${port}`);
-});
+export default app;

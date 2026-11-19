@@ -10,17 +10,24 @@ const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
 
 // Save the payment once and mark the booking as paid
 const savePayment = async (booking, session) => {
-  const existing = await paymentsCollection.findOne({ transactionId: session.id });
+  const existing = await paymentsCollection.findOne({
+    $or: [{ stripeSessionId: session.id }, { transactionId: session.id }],
+  });
   if (!existing) {
     await paymentsCollection.insertOne({
       bookingId: booking._id.toString(),
       serviceTitle: booking.serviceTitle,
       customerName: booking.customerName,
       customerEmail: booking.customerEmail,
+      technicianName: booking.technicianName,
       technicianEmail: booking.technicianEmail,
       amount: session.amount_total / 100,
-      transactionId: session.id,
+      currency: "usd",
+      transactionId: session.payment_intent,
+      stripeSessionId: session.id,
+      paymentStatus: "paid",
       status: "paid",
+      paidAt: new Date(),
       createdAt: new Date(),
     });
   }
@@ -65,7 +72,7 @@ router.post("/create-checkout-session", verifyToken, verifyCustomer, async (req,
     ],
     success_url: `${CLIENT_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}&bookingId=${bookingId}`,
     cancel_url: `${CLIENT_URL}/payment/cancel`,
-    metadata: { bookingId },
+    metadata: { bookingId, customerEmail: booking.customerEmail },
   });
 
   res.send({ url: session.url });

@@ -52,12 +52,20 @@ router.get("/technician", verifyToken, verifyTechnician, async (req, res) => {
   const totalServices = await servicesCollection.countDocuments({
     technicianEmail: email,
   });
+  const approvedServices = await servicesCollection.countDocuments({
+    technicianEmail: email,
+    approvalStatus: "approved",
+  });
   const pendingApproval = await servicesCollection.countDocuments({
     technicianEmail: email,
     approvalStatus: "pending",
   });
   const totalRequests = await bookingsCollection.countDocuments({
     technicianEmail: email,
+  });
+  const pendingRequests = await bookingsCollection.countDocuments({
+    technicianEmail: email,
+    status: "requested",
   });
   const completedJobs = await bookingsCollection.countDocuments({
     technicianEmail: email,
@@ -69,8 +77,10 @@ router.get("/technician", verifyToken, verifyTechnician, async (req, res) => {
 
   res.send({
     totalServices,
+    approvedServices,
     pendingApproval,
     totalRequests,
+    pendingRequests,
     completedJobs,
     totalEarnings: sumAmount(myPayments),
   });

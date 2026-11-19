@@ -6,9 +6,9 @@ import { servicesCollection, usersCollection } from "../db.js";
 
 const router = express.Router();
 
-// Public: all approved + available services, with server-side search, filter, sort
+// Public: approved + available services, with server-side search, filter, sort and pagination
 router.get("/", async (req, res) => {
-  const { search, category, serviceMode, sort } = req.query;
+  const { search, category, serviceMode, sort, page, limit } = req.query;
 
   const query = { approvalStatus: "approved", isAvailable: true };
   if (search) {
@@ -24,8 +24,23 @@ router.get("/", async (req, res) => {
   if (sort === "price-low") sortOption = { basePrice: 1 };
   if (sort === "price-high") sortOption = { basePrice: -1 };
 
-  const services = await servicesCollection.find(query).sort(sortOption).toArray();
-  res.send(services);
+  const currentPage = Math.max(Number(page) || 1, 1);
+  const pageSize = Math.max(Number(limit) || 9, 1);
+
+  const total = await servicesCollection.countDocuments(query);
+  const services = await servicesCollection
+    .find(query)
+    .sort(sortOption)
+    .skip((currentPage - 1) * pageSize)
+    .limit(pageSize)
+    .toArray();
+
+  res.send({
+    services,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+    currentPage,
+  });
 });
 
 // Public: 6 latest approved + available services (for the home page)

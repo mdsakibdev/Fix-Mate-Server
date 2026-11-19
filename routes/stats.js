@@ -99,6 +99,15 @@ router.get("/admin", verifyToken, verifyAdmin, async (req, res) => {
   const totalBookings = await bookingsCollection.countDocuments();
   const allPayments = await paymentsCollection.find().toArray();
 
+  const bookingsByStatus = {
+    requested: await bookingsCollection.countDocuments({ status: "requested" }),
+    accepted: await bookingsCollection.countDocuments({ status: "accepted" }),
+    "in-progress": await bookingsCollection.countDocuments({ status: "in-progress" }),
+    completed: await bookingsCollection.countDocuments({ status: "completed" }),
+    rejected: await bookingsCollection.countDocuments({ status: "rejected" }),
+    cancelled: await bookingsCollection.countDocuments({ status: "cancelled" }),
+  };
+
   res.send({
     totalUsers,
     totalTechnicians,
@@ -106,6 +115,7 @@ router.get("/admin", verifyToken, verifyAdmin, async (req, res) => {
     pendingServices,
     totalBookings,
     totalRevenue: sumAmount(allPayments),
+    bookingsByStatus,
   });
 });
 

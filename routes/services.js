@@ -1,10 +1,30 @@
 import express from "express";
 import { ObjectId } from "mongodb";
 import { verifyToken, verifyTechnician } from "../middlewares/verifyToken.js";
-import { servicesCollection, usersCollection } from "../db.js";
+import { bookingsCollection, servicesCollection, usersCollection } from "../db.js";
 
 
 const router = express.Router();
+
+// Attach the average rating and review count (from reviewed bookings) to services
+const attachRatings = async (services) => {
+  const withRatings = [];
+  for (const service of services) {
+    const reviewedBookings = await bookingsCollection
+      .find({ serviceId: service._id.toString(), rating: { $exists: true } })
+      .toArray();
+    const reviewCount = reviewedBookings.length;
+    const averageRating = reviewCount
+      ? Math.round(
+          (reviewedBookings.reduce((sum, booking) => sum + booking.rating, 0) /
+            reviewCount) *
+            10
+        ) / 10
+      : 0;
+    withRatings.push({ ...service, averageRating, reviewCount });
+  }
+  return withRatings;
+};
 
 // Public: approved + available services, with server-side search, filter, sort and pagination
 router.get("/", async (req, res) => {
@@ -34,9 +54,10 @@ router.get("/", async (req, res) => {
     .skip((currentPage - 1) * pageSize)
     .limit(pageSize)
     .toArray();
+  const servicesWithRatings = await attachRatings(services);
 
   res.send({
-    services,
+    services: servicesWithRatings,
     total,
     totalPages: Math.ceil(total / pageSize),
     currentPage,
@@ -50,7 +71,7 @@ router.get("/featured", async (req, res) => {
     .sort({ createdAt: -1 })
     .limit(6)
     .toArray();
-  res.send(services);
+  res.send(await attachRatings(services));
 });
 
 // Technician: my own services
@@ -79,8 +100,23 @@ router.get("/:id", async (req, res) => {
     // Attach a short technician summary (name, photo, area, bio)
   const technician = await usersCollection.findOne({ email: service.technicianEmail });
 
+  const [serviceWithRating] = await attachRatings([service]);
+
+  // Customer reviews for this service (latest first)
+  const reviewedBookings = await bookingsCollection
+    .find({ serviceId: id, rating: { $exists: true } })
+    .sort({ reviewedAt: -1 })
+    .toArray();
+  const reviews = reviewedBookings.map((booking) => ({
+    customerName: booking.customerName,
+    rating: booking.rating,
+    review: booking.review || "",
+    reviewedAt: booking.reviewedAt,
+  }));
+
   res.send({
-    ...service,
+    ...serviceWithRating,
+    reviews,
     technician: technician
       ? {
           name: technician.name,

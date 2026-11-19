@@ -123,6 +123,46 @@ router.patch("/:id/cancel", verifyToken, verifyCustomer, async (req, res) => {
 });
 
 
+// Customer: rate and review a booking (only after payment, one review per booking)
+router.patch("/:id/review", verifyToken, verifyCustomer, async (req, res) => {
+  const { id } = req.params;
+  const { rating, review } = req.body;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(404).send({ message: "Booking not found" });
+  }
+
+  const booking = await bookingsCollection.findOne({ _id: new ObjectId(id) });
+  if (!booking) {
+    return res.status(404).send({ message: "Booking not found" });
+  }
+  if (booking.customerEmail !== req.user.email) {
+    return res.status(403).send({ message: "You can only review your own booking" });
+  }
+  if (booking.paymentStatus !== "paid") {
+    return res.status(400).send({ message: "You can review only after the payment is done" });
+  }
+  if (booking.rating) {
+    return res.status(400).send({ message: "You have already reviewed this booking" });
+  }
+
+  const ratingNumber = Number(rating);
+  if (!ratingNumber || ratingNumber < 1 || ratingNumber > 5) {
+    return res.status(400).send({ message: "Rating must be between 1 and 5" });
+  }
+  const reviewText = (review || "").trim();
+  if (reviewText.length > 300) {
+    return res.status(400).send({ message: "Review cannot be more than 300 characters" });
+  }
+
+  await bookingsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { rating: ratingNumber, review: reviewText, reviewedAt: new Date() } }
+  );
+  res.send({ message: "Review submitted successfully" });
+});
+
+
 // Technician: bookings assigned to me
 router.get("/technician", verifyToken, verifyTechnician, async (req, res) => {
   const bookings = await bookingsCollection

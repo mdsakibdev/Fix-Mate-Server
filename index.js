@@ -12,6 +12,9 @@ const port = process.env.PORT || 5000;
 
 // middleware
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000" }));
+// The Stripe webhook needs the raw request body to verify its signature,
+// so this line must stay before express.json()
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 
 app.get("/", (req, res) => {

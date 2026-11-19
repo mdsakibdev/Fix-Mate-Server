@@ -31,13 +31,18 @@ const savePayment = async (booking, session) => {
       createdAt: new Date(),
     });
   }
-  await bookingsCollection.updateOne(
-    { _id: booking._id },
-    {
-      $set: { paymentStatus: "paid" },
-      $push: { statusHistory: { status: "paid", changedAt: new Date() } },
-    }
-  );
+  // Mark the booking paid only the first time, so the timeline
+  // does not get a second "paid" entry when both the webhook
+  // and the success-page verify run for the same payment
+  if (booking.paymentStatus !== "paid") {
+    await bookingsCollection.updateOne(
+      { _id: booking._id },
+      {
+        $set: { paymentStatus: "paid" },
+        $push: { statusHistory: { status: "paid", changedAt: new Date() } },
+      }
+    );
+  }
 };
 
 // Customer: create a Stripe Checkout session for a completed booking
@@ -103,6 +108,38 @@ router.get("/verify", verifyToken, verifyCustomer, async (req, res) => {
 
   await savePayment(booking, session);
   res.send({ paid: true });
+});
+
+// Stripe webhook: Stripe itself calls this when a checkout is completed.
+// No login is needed here — the Stripe signature proves the call is real.
+// It uses the same savePayment(), so a payment is never saved twice:
+// whichever runs first (this webhook or the success-page verify) saves it,
+// and the other one sees it already exists and skips it.
+router.post("/webhook", async (req, res) => {
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      req.headers["stripe-signature"],
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (error) {
+    return res.status(400).send({ message: "Webhook signature verification failed" });
+  }
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+    const bookingId = session.metadata?.bookingId;
+
+    if (session.payment_status === "paid" && bookingId && ObjectId.isValid(bookingId)) {
+      const booking = await bookingsCollection.findOne({ _id: new ObjectId(bookingId) });
+      if (booking) {
+        await savePayment(booking, session);
+      }
+    }
+  }
+
+  res.send({ received: true });
 });
 
 // Customer: my payment history

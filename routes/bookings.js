@@ -70,6 +70,7 @@ router.post("/", verifyToken, verifyCustomer, async (req, res) => {
     status: "requested",
     finalAmount: service.basePrice,
     paymentStatus: "unpaid",
+    statusHistory: [{ status: "requested", changedAt: new Date() }],
     createdAt: new Date(),
   };
 
@@ -113,7 +114,10 @@ router.patch("/:id/cancel", verifyToken, verifyCustomer, async (req, res) => {
 
   await bookingsCollection.updateOne(
     { _id: new ObjectId(id) },
-    { $set: { status: "cancelled" } }
+    {
+      $set: { status: "cancelled" },
+      $push: { statusHistory: { status: "cancelled", changedAt: new Date() } },
+    }
   );
   res.send({ message: "Booking cancelled" });
 });
@@ -168,7 +172,10 @@ router.patch("/:id/status", verifyToken, verifyTechnician, async (req, res) => {
 
   await bookingsCollection.updateOne(
     { _id: new ObjectId(id) },
-    { $set: update }
+    {
+      $set: update,
+      $push: { statusHistory: { status, changedAt: new Date() } },
+    }
   );
   res.send({ message: `Booking marked as ${status}` });
 });

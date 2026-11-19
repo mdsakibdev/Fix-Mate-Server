@@ -33,7 +33,10 @@ const savePayment = async (booking, session) => {
   }
   await bookingsCollection.updateOne(
     { _id: booking._id },
-    { $set: { paymentStatus: "paid" } }
+    {
+      $set: { paymentStatus: "paid" },
+      $push: { statusHistory: { status: "paid", changedAt: new Date() } },
+    }
   );
 };
 

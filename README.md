@@ -4,15 +4,15 @@ The REST API for FixMate, a smart device & home appliance repair service platfor
 
 ## Live API
 
-- **Base URL:** _add after deployment_
-- **Client site:** _add after deployment_
+- **Base URL:** https://fix-mate-server-fghr.vercel.app
+- **Client site:** https://fix-mate-client-fghr.vercel.app
 
 ## Key Features
 
 - **JWT verification** against the client's Better Auth JWKS (`jose`), with role middlewares: `verifyCustomer`, `verifyTechnician`, `verifyAdmin` (401 without a token, 403 for the wrong role)
 - **Services API** — public list with server-side search, filters, sorting and pagination; featured services; details with technician summary, average rating and reviews; technician CRUD (edits return a service to pending approval)
 - **Bookings API** — create requests with server-side guards (no duplicate active request for the same service, problem description 20–500 characters), customer cancel only while `requested`, technician status pipeline (`requested → accepted → in-progress → completed` / `rejected`) with a `statusHistory` entry for every change
-- **Payments API** — Stripe Checkout sessions created from the booking's final amount; payment verified on the success page and saved exactly once, storing the Stripe payment intent id (`transactionId`) and session id (`stripeSessionId`)
+- **Payments API** — Stripe Checkout sessions created from the booking's final amount; payment verified on the success page and saved exactly once, storing the Stripe payment intent id (`transactionId`) and session id (`stripeSessionId`); Stripe webhook (`checkout.session.completed`) confirms payment on the server too
 - **Reviews** — one review per paid booking (rating 1–5 + optional text)
 - **Admin API** — service approval/rejection, user role management (admin cannot change their own role), all bookings, all transactions with total revenue
 - **Stats API** — per-role dashboard numbers, including bookings grouped by status for the admin chart
@@ -47,12 +47,13 @@ The REST API for FixMate, a smart device & home appliance repair service platfor
 | DELETE | /api/services/:id                  | Technician | Delete own service                       |
 | POST   | /api/bookings                      | Customer   | Send a repair request                    |
 | GET    | /api/bookings/my                   | Customer   | My bookings                              |
-| PATCH  | /api/bookings/:id/cancel           | Customer   | Cancel while requested                   |
+| PATCH  | /api/bookings/:id/cancel           | Customer | Cancel while requested                   |
 | GET    | /api/bookings/technician           | Technician | Requests assigned to me                  |
 | PATCH  | /api/bookings/:id/status           | Technician | Move through the status pipeline         |
 | PATCH  | /api/bookings/:id/review           | Customer   | Review a paid booking                    |
 | POST   | /api/payments/create-checkout-session | Customer | Create a Stripe Checkout session         |
 | GET    | /api/payments/verify               | Customer   | Verify payment and save it once          |
+| POST   | /api/payments/webhook              | Stripe     | Webhook confirms payment (checkout.session.completed) |
 | GET    | /api/payments/my                   | Customer   | My payment history                       |
 | GET    | /api/admin/services/pending        | Admin      | Services waiting for approval            |
 | PATCH  | /api/admin/services/:id/approval   | Admin      | Approve or reject a service              |
@@ -78,6 +79,7 @@ PORT=5000
 MONGODB_URI=
 CLIENT_URL=http://localhost:3000
 STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 ```
 
 Optional seed data:
